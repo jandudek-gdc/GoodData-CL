@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * The GoodData REST API Java wrapper.
@@ -83,6 +84,7 @@ public class GdcRESTApiWrapper {
     protected NamePasswordConfiguration config;
     private String ssToken;
     private JSONObject profile;
+    private String userStateUri;
 
     private static final CookieSpec COOKIE_SPEC = new RFC2109Spec();
 
@@ -136,6 +138,7 @@ public class GdcRESTApiWrapper {
             JSONObject rsp = JSONObject.fromObject(resp);
             JSONObject userLogin =  rsp.getJSONObject("userLogin");
             String profileUri = userLogin.getString("profile");
+            this.userStateUri = userLogin.getString("state");
             if(profileUri != null && profileUri.length()>0) {
                 GetMethod gm = createGetMethod(config.getUrl() + profileUri);
                 resp = executeMethodOk(gm);
@@ -153,6 +156,28 @@ public class GdcRESTApiWrapper {
             loginPost.releaseConnection();
         }
 
+    }
+    
+        /**
+     * GDC logout - remove active session, if any exists
+     *
+     * @throws HttpMethodException
+     */
+    public void logout() throws HttpMethodException {
+        if (StringUtils.isBlank(this.userStateUri)) {
+            return;
+        }
+        
+        l.debug("Logging out.");
+        DeleteMethod logoutDelete = createDeleteMethod(config.getUrl() + this.userStateUri);
+        try {
+            executeMethodOk(logoutDelete, false); // do not re-login on SC_UNAUTHORIZED
+            this.userStateUri = null;
+            this.profile = null;
+            l.debug("Successfully logged out.");
+        } finally {
+            logoutDelete.releaseConnection();
+        }
     }
 
     /**
