@@ -48,6 +48,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * The GoodData REST API Java wrapper.
@@ -110,6 +111,7 @@ public class GdcRESTApiWrapper {
     protected NamePasswordConfiguration config;
     private String ssToken;
     private JSONObject profile;
+    private String userStateUri;
 
     private static HashMap<String,Integer> ROLES = new HashMap<String,Integer>();
 
@@ -161,6 +163,7 @@ public class GdcRESTApiWrapper {
             JSONObject rsp = JSONObject.fromObject(resp);
             JSONObject userLogin =  rsp.getJSONObject("userLogin");
             String profileUri = userLogin.getString("profile");
+            this.userStateUri = userLogin.getString("state");
             if(profileUri != null && profileUri.length()>0) {
                 GetMethod gm = createGetMethod(getServerUrl() + profileUri);
                 resp = executeMethodOk(gm);
@@ -178,6 +181,28 @@ public class GdcRESTApiWrapper {
             loginPost.releaseConnection();
         }
 
+    }
+    
+    /**
+     * GDC logout - remove active session, if any exists
+     *
+     * @throws HttpMethodException
+     */
+    public void logout() throws HttpMethodException {
+        if (StringUtils.isBlank(this.userStateUri)) {
+            return;
+        }
+        
+        l.debug("Logging out.");
+        DeleteMethod logoutDelete = createDeleteMethod(getServerUrl() + this.userStateUri);
+        try {
+            executeMethodOk(logoutDelete, false); // do not re-login on SC_UNAUTHORIZED
+            this.userStateUri = null;
+            this.profile = null;
+            l.debug("Successfully logged out.");
+        } finally {
+            logoutDelete.releaseConnection();
+        }
     }
 
     /**
@@ -2934,7 +2959,7 @@ public class GdcRESTApiWrapper {
         request.setRequestHeader("Content-Type", "application/json; charset=utf-8");
         request.setRequestHeader("Accept", "application/json");
         request.setRequestHeader("Accept-Charset", "utf-u");
-        request.setRequestHeader("User-Agent", "GoodData CL/1.2.36-BETA");
+        request.setRequestHeader("User-Agent", "GoodData CL/1.2.38-CONNECTORS");
         return request;
     }
 
